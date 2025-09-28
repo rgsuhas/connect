@@ -26,11 +26,14 @@ A complete media player solution for Raspberry Pi that provides remote playlist 
 ├── logger_setup.py       # Logging utilities
 ├── test_system.py        # Comprehensive test suite
 ├── install.sh            # Automated installer
+├── run.sh                # Boot startup script
+├── setup_boot.sh         # Boot configuration script
 ├── media_cache/          # Downloaded media files
 ├── logs/                 # Application logs
 └── services/             # Systemd service files
     ├── pi-player.service
-    └── media-player.service
+    ├── media-player.service
+    └── pi-player-startup.service
 ```
 
 ## 🚀 Quick Installation
@@ -326,6 +329,81 @@ RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+```
+
+## 🚀 Automatic Boot Startup
+
+Pi Player includes a comprehensive boot startup system that ensures your Pi is ready for playlists immediately after power-on.
+
+### Boot Startup Features
+
+- **Multiple startup methods** for maximum reliability
+- **Health checking** and service recovery
+- **Network connectivity verification**
+- **System preparation** and environment setup
+- **Comprehensive logging** of startup process
+
+### Manual Boot Setup
+
+```bash
+# Configure automatic startup
+./setup_boot.sh
+
+# Test startup manually
+./run.sh
+
+# Test specific startup script
+./test_startup.sh
+```
+
+### Startup Methods Configured
+
+1. **Systemd Service** (Primary)
+   - `pi-player-startup.service` runs on boot
+   - Handles service dependencies and timing
+   - Automatic restart on failure
+
+2. **Cron Job** (Fallback)
+   - `@reboot` cron entry for backup startup
+   - Runs after 60-second delay for system stability
+
+3. **Desktop Autostart** (GUI environments)
+   - Autostart entry for desktop sessions
+   - Useful for Pi Desktop installations
+
+### Boot Process
+
+1. **System Preparation**
+   - Wait for network connectivity
+   - Set up display and audio environment
+   - Create directories and set permissions
+
+2. **Service Management**
+   - Check service installation
+   - Start API server and media player
+   - Enable services for future boots
+
+3. **Health Verification**
+   - API endpoint testing
+   - Service status validation
+   - Network connectivity check
+
+4. **Ready State**
+   - Display system status report
+   - Log startup completion
+   - Pi ready for playlist management
+
+### Startup Logs
+
+```bash
+# View startup logs
+tail -f /home/pi/pi-player/logs/startup.log
+
+# View systemd startup service logs
+sudo journalctl -u pi-player-startup.service -f
+
+# View main service logs
+sudo journalctl -u pi-player.service -u media-player.service -f
 ```
 
 ## 🛠️ Troubleshooting

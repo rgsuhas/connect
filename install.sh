@@ -286,6 +286,25 @@ setup_firewall() {
     fi
 }
 
+# Setup automatic boot startup
+setup_boot_startup() {
+    log "Setting up automatic boot startup..."
+    
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    if [[ -f "${script_dir}/setup_boot.sh" ]]; then
+        # Run the boot setup script
+        "${script_dir}/setup_boot.sh" || {
+            warning "Boot setup encountered issues but continuing..."
+        }
+    else
+        warning "Boot setup script not found, manual setup required"
+        log "Run './setup_boot.sh' after installation to enable automatic startup"
+    fi
+    
+    success "Boot startup configuration completed"
+}
+
 # Create utility scripts
 create_utilities() {
     log "Creating utility scripts..."
@@ -350,11 +369,14 @@ show_completion() {
     echo -e "${BLUE}Quick Commands:${NC}"
     echo "  Check status: $INSTALL_DIR/status.sh"
     echo "  Restart services: $INSTALL_DIR/restart.sh"
+    echo "  Manual startup: $INSTALL_DIR/run.sh"
+    echo "  Test startup: $INSTALL_DIR/test_startup.sh"
     echo "  View API docs: http://$(hostname -I | awk '{print $1}'):8000/docs"
     echo
     echo -e "${BLUE}Test the installation:${NC}"
     echo "  curl http://localhost:8000/health"
     echo "  curl http://localhost:8000/telemetry"
+    echo "  sudo reboot  # Test automatic startup"
     echo
     echo -e "${YELLOW}Note:${NC} If you're using SSH, you may need to configure DISPLAY and audio"
     echo "      for the media player daemon to work properly."
@@ -423,6 +445,7 @@ main() {
     create_sample_playlist
     create_default_assets
     setup_firewall
+    setup_boot_startup
     create_utilities
     show_completion
 }

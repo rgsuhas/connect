@@ -202,6 +202,43 @@ setup_firewall() {
     fi
 }
 
+# Setup automatic boot startup
+setup_boot_startup() {
+    log "Setting up automatic boot startup..."
+    
+    local script_dir="$(pwd)"
+    
+    # Install startup service
+    if [[ -f "$script_dir/services/pi-player-startup.service" ]]; then
+        sudo cp "$script_dir/services/pi-player-startup.service" /etc/systemd/system/
+        sudo chmod 644 /etc/systemd/system/pi-player-startup.service
+        sudo systemctl daemon-reload
+        sudo systemctl enable pi-player-startup.service
+        success "Boot startup service enabled"
+    fi
+    
+    # Add cron job as backup
+    if ! crontab -l 2>/dev/null | grep -q "pi-player/run.sh"; then
+        (crontab -l 2>/dev/null; echo "@reboot sleep 60 && $INSTALL_DIR/run.sh >> $INSTALL_DIR/logs/startup.log 2>&1") | crontab -
+        success "Cron backup startup added"
+    fi
+    
+    # Configure sudoers for service management
+    local sudoers_file="/etc/sudoers.d/pi-player"
+    sudo tee "$sudoers_file" > /dev/null << EOF
+# Pi Player service management
+$PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl start pi-player.service
+$PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart pi-player.service
+$PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl start media-player.service
+$PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart media-player.service
+$PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl daemon-reload
+$PI_USER ALL=(ALL) NOPASSWD: /bin/chown -R $PI_USER:$PI_USER $INSTALL_DIR
+EOF
+    sudo chmod 644 "$sudoers_file"
+    
+    success "Boot startup configured"
+}
+
 # Start services
 start_services() {
     log "Starting Pi Player services..."
@@ -335,6 +372,7 @@ main() {
     install_python_deps
     install_services
     setup_firewall
+    setup_boot_startup
     start_services
     create_utilities
     

@@ -1,0 +1,33 @@
+[Unit]
+Description=Pi Player Boot Startup Script
+Documentation=https://github.com/your-org/pi-player
+After=network-online.target graphical-session.target multi-user.target
+Wants=network-online.target
+StartLimitBurst=3
+StartLimitIntervalSec=300
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/pi-player
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/home/pi/pi-player
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+ExecStart=/home/pi/pi-player/run.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pi-player-startup
+
+# Security settings
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+
+# Allow sudo access for service management
+# Note: The pi user should have sudo privileges
+
+[Install]
+WantedBy=multi-user.target
