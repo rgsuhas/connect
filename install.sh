@@ -98,15 +98,44 @@ install_system_deps() {
 install_python_deps() {
     log "Setting up Python environment..."
     
-    # Upgrade pip first
-    python3 -m pip install --user --upgrade pip
+    # Try system packages first (preferred method)
+    log "Installing Python packages via apt..."
+    sudo apt install -y python3-fastapi python3-uvicorn python3-psutil python3-requests 2>/dev/null || {
+        log "Some packages not available via apt, using pip with virtual environment..."
+        
+        # Create virtual environment
+        python3 -m venv "$INSTALL_DIR/venv"
+        source "$INSTALL_DIR/venv/bin/activate"
+        
+        # Upgrade pip in virtual environment
+        pip install --upgrade pip
+        
+        # Install Python packages in virtual environment
+        pip install $PYTHON_REQUIREMENTS
+        
+        # Create activation script
+        cat > "$INSTALL_DIR/activate_venv.sh" << 'EOF'
+#!/bin/bash
+source /home/pi/pi-player/venv/bin/activate
+exec "$@"
+EOF
+        chmod +x "$INSTALL_DIR/activate_venv.sh"
+        
+        deactivate
+        
+        log "Virtual environment created at $INSTALL_DIR/venv"
+    }
     
-    # Install Python packages globally for the pi user
-    log "Installing Python packages..."
-    python3 -m pip install --user $PYTHON_REQUIREMENTS
-    
-    # Verify installation
-    python3 -c "import fastapi, uvicorn, psutil, requests; print('Python dependencies verified')"
+    # Try to verify installation (works with both system and venv packages)
+    if command -v "$INSTALL_DIR/venv/bin/python" >/dev/null 2>&1; then
+        "$INSTALL_DIR/venv/bin/python" -c "import fastapi, uvicorn, psutil, requests; print('Python dependencies verified (venv)')"
+    else
+        python3 -c "import fastapi, uvicorn, psutil, requests; print('Python dependencies verified (system)')" 2>/dev/null || {
+            warning "Could not verify all Python packages. Trying pip with --break-system-packages..."
+            python3 -m pip install --user --break-system-packages $PYTHON_REQUIREMENTS
+            python3 -c "import fastapi, uvicorn, psutil, requests; print('Python dependencies verified (user install)')"
+        }
+    fi
     
     success "Python dependencies installed"
 }

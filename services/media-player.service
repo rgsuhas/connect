@@ -16,7 +16,7 @@ Environment=PYTHONPATH=/home/pi/pi-player
 Environment=PYTHONUNBUFFERED=1
 Environment=DISPLAY=:0
 Environment=PULSE_SERVER=tcp:localhost:4713
-ExecStart=/usr/bin/python3 /home/pi/pi-player/media_player.py
+ExecStart=/bin/bash -c 'if [ -f /home/pi/pi-player/venv/bin/python ]; then /home/pi/pi-player/venv/bin/python /home/pi/pi-player/media_player.py; else /usr/bin/python3 /home/pi/pi-player/media_player.py; fi'
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGTERM

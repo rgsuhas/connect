@@ -14,7 +14,7 @@ WorkingDirectory=/home/pi/pi-player
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=PYTHONPATH=/home/pi/pi-player
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/usr/bin/python3 /home/pi/pi-player/pi_server.py
+ExecStart=/bin/bash -c 'if [ -f /home/pi/pi-player/venv/bin/python ]; then /home/pi/pi-player/venv/bin/python /home/pi/pi-player/pi_server.py; else /usr/bin/python3 /home/pi/pi-player/pi_server.py; fi'
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGTERM
