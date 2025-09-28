@@ -1,6 +1,6 @@
 [Unit]
 Description=Pi Player API Server
-Documentation=https://github.com/your-org/pi-player
+Documentation=https://github.com/rgsuahs/connect
 After=network-online.target
 Wants=network-online.target
 StartLimitBurst=5

@@ -1,6 +1,6 @@
 [Unit]
 Description=Pi Player Media Player Daemon
-Documentation=https://github.com/your-org/pi-player
+Documentation=https://github.com/rgsuhas/connect
 After=graphical-session.target sound.target
 Wants=graphical-session.target
 StartLimitBurst=5

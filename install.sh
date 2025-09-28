@@ -52,7 +52,7 @@ check_os() {
     . /etc/os-release
     log "Detected OS: $PRETTY_NAME"
     
-    if [[ "$ID" != "raspbian" ]] && [[ "$ID_LIKE" != *"debian"* ]]; then
+    if [[ "${ID:-}" != "raspbian" ]] && [[ "${ID_LIKE:-}" != *"debian"* ]]; then
         warning "This script is designed for Raspberry Pi OS/Debian. Continuing anyway..."
     fi
 }
