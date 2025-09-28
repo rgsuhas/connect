@@ -45,6 +45,10 @@ logs/*.log.*
 current_playlist.json
 playback_state.json
 
+# Default assets (keep source, ignore generated)
+default_assets/*.png
+!default_assets/default_screen.png
+
 # System files
 .DS_Store
 Thumbs.db

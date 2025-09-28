@@ -252,6 +252,29 @@ EOF
     success "Sample playlist created at ${INSTALL_DIR}/sample_playlist.json"
 }
 
+# Create default screen assets
+create_default_assets() {
+    log "Creating default screen assets..."
+    
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
+    if [[ -f "${script_dir}/create_default_assets.sh" ]]; then
+        cd "$script_dir"
+        ./create_default_assets.sh 2>/dev/null || {
+            warning "Could not create default screen assets automatically"
+            log "Default screen will be created at runtime if needed"
+        }
+        cd - > /dev/null
+    else
+        # Create minimal default manually
+        mkdir -p "${INSTALL_DIR}/default_assets"
+        echo "Pi Player Default Screen - Will be created at runtime" > "${INSTALL_DIR}/default_assets/README.txt"
+        warning "Default asset creator not found, will create at runtime"
+    fi
+    
+    success "Default assets setup complete"
+}
+
 # Setup firewall (optional)
 setup_firewall() {
     if command -v ufw >/dev/null 2>&1; then
@@ -398,6 +421,7 @@ main() {
     install_services
     enable_services
     create_sample_playlist
+    create_default_assets
     setup_firewall
     create_utilities
     show_completion

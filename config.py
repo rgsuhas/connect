@@ -34,6 +34,11 @@ class Config:
     IMAGE_DISPLAY_DURATION: int = 10    # seconds for image display
     PLAYLIST_LOOP: bool = True
     
+    # Default screen settings
+    SHOW_DEFAULT_SCREEN: bool = True    # Show default screen when no playlist
+    DEFAULT_SCREEN_PATH: Path = BASE_DIR / "default_assets" / "default_screen.png"
+    DEFAULT_SCREEN_TIMEOUT: int = 30    # seconds before showing default screen
+    
     # Download settings
     DOWNLOAD_TIMEOUT: int = 30          # seconds
     MAX_CONCURRENT_DOWNLOADS: int = 3

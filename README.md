@@ -9,6 +9,7 @@ A complete media player solution for Raspberry Pi that provides remote playlist 
 - **Intelligent caching** with incremental updates
 - **Multi-format support**: Video (MP4, AVI, MKV), Audio (MP3, WAV, FLAC), Images (JPG, PNG, GIF)
 - **Looping playback** with configurable durations
+- **Default screen display** when no playlist is active
 - **System telemetry** and health monitoring
 - **Auto-start services** with systemd integration
 - **Robust error handling** with automatic restarts
@@ -101,6 +102,10 @@ PLAYLIST_LOOP = True
 # Download settings
 MAX_CONCURRENT_DOWNLOADS = 3
 DOWNLOAD_TIMEOUT = 30
+
+# Default screen settings
+SHOW_DEFAULT_SCREEN = True       # Show branded screen when idle
+DEFAULT_SCREEN_TIMEOUT = 30      # Seconds before showing default screen
 ```
 
 ## 🌐 API Endpoints
@@ -190,6 +195,7 @@ The media player daemon:
 - Supports looping and sequential playback
 - Handles process cleanup gracefully
 - Updates playback state for telemetry
+- Shows branded default screen when idle
 
 ## 📊 Telemetry Data
 

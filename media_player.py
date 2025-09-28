@@ -38,6 +38,8 @@ class MediaPlayer:
         self.should_stop = False
         self.playlist_version = None
         self.loop_enabled = True
+        self.showing_default_screen = False
+        self.no_playlist_since = None
         
         # Thread for watching playlist changes
         self.watcher_thread = None
@@ -81,6 +83,11 @@ class MediaPlayer:
                     self.playlist_version = new_version
                     self.loop_enabled = data.get("loop", True)
                     self.current_index = 0  # Reset to beginning
+                    # Reset no playlist tracking when we get content
+                    if self.playlist:
+                        self.no_playlist_since = None
+                        if self.showing_default_screen:
+                            self.showing_default_screen = False
                 
                 logger.info(f"Loaded playlist v{new_version} with {len(self.playlist)} items")
                 return True
@@ -112,6 +119,88 @@ class MediaPlayer:
                 logger.error(f"Failed to stop player process: {e}")
             finally:
                 self.current_process = None
+    
+    def create_default_screen_if_needed(self):
+        """Create default screen image if it doesn't exist"""
+        default_path = config.DEFAULT_SCREEN_PATH
+        
+        if not default_path.exists():
+            try:
+                # Create default assets directory
+                default_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Try to create a simple default image using PIL
+                try:
+                    from PIL import Image, ImageDraw, ImageFont
+                    
+                    # Create a simple branded image
+                    width, height = 1920, 1080
+                    image = Image.new('RGB', (width, height), color='#1a1a2e')
+                    draw = ImageDraw.Draw(image)
+                    
+                    # Add text
+                    try:
+                        font = ImageFont.load_default()
+                        text = "Pi Player - Ready for Content"
+                        text_bbox = draw.textbbox((0, 0), text, font=font)
+                        text_width = text_bbox[2] - text_bbox[0]
+                        text_x = (width - text_width) // 2
+                        text_y = height // 2
+                        draw.text((text_x, text_y), text, fill='white', font=font)
+                    except:
+                        # Fallback without font
+                        draw.rectangle([(width//4, height//2-50), (3*width//4, height//2+50)], fill='#333366')
+                    
+                    image.save(str(default_path), 'PNG')
+                    logger.info(f"Created default screen image at {default_path}")
+                    
+                except ImportError:
+                    # PIL not available, create a simple text file that feh can't display
+                    # This will cause feh to show an error, which is better than nothing
+                    default_path.write_text("Pi Player - Default Screen\nWaiting for playlist...")
+                    logger.warning("PIL not available, created text placeholder")
+                    
+            except Exception as e:
+                logger.error(f"Failed to create default screen: {e}")
+    
+    def show_default_screen(self):
+        """Display the default screen"""
+        if not config.SHOW_DEFAULT_SCREEN:
+            return False
+            
+        self.create_default_screen_if_needed()
+        
+        if not config.DEFAULT_SCREEN_PATH.exists():
+            logger.warning("Default screen image not available")
+            return False
+        
+        try:
+            # Use feh to display the default screen
+            cmd = [
+                "feh",
+                "--fullscreen",
+                "--hide-pointer",
+                "--quiet",
+                "--no-menus",
+                str(config.DEFAULT_SCREEN_PATH)
+            ]
+            
+            logger.info("Showing default screen")
+            self.update_playback_state("showing_default", "Default Screen")
+            
+            self.current_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid
+            )
+            
+            self.showing_default_screen = True
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to show default screen: {e}")
+            return False
     
     def get_player_command(self, media_path: Path, item: Dict) -> List[str]:
         """Get the appropriate player command for media type"""
@@ -207,9 +296,31 @@ class MediaPlayer:
                 
                 # Check if we have a playlist
                 if not self.playlist:
-                    logger.info("No playlist items, waiting...")
-                    self.update_playback_state("waiting", "No playlist")
-                    time.sleep(config.PLAYER_CHECK_INTERVAL * 5)  # Wait longer when no playlist
+                    # Track when we first noticed no playlist
+                    if self.no_playlist_since is None:
+                        self.no_playlist_since = time.time()
+                        logger.info("No playlist items, waiting...")
+                        self.update_playback_state("waiting", "No playlist")
+                    
+                    # Show default screen after timeout
+                    elif (time.time() - self.no_playlist_since >= config.DEFAULT_SCREEN_TIMEOUT and 
+                          not self.showing_default_screen):
+                        logger.info("No playlist for extended period, showing default screen")
+                        if self.show_default_screen():
+                            # Keep default screen running until playlist arrives
+                            while not self.playlist and not self.should_stop:
+                                if self.load_playlist():  # Check for new playlist
+                                    break
+                                time.sleep(config.PLAYER_CHECK_INTERVAL)
+                            # Stop default screen when playlist becomes available
+                            self.stop_current_player()
+                            self.showing_default_screen = False
+                        else:
+                            # Fallback if default screen fails
+                            time.sleep(config.PLAYER_CHECK_INTERVAL * 5)
+                    else:
+                        time.sleep(config.PLAYER_CHECK_INTERVAL * 2)
+                    
                     continue
                 
                 # Get current item
