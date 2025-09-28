@@ -51,7 +51,7 @@ log "Working directory: $(pwd)"
 
 # Method 1: Try system packages first
 log "Trying system packages..."
-if sudo apt install -y python3-fastapi python3-uvicorn python3-psutil python3-requests python3-full 2>/dev/null; then
+if sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq python3-fastapi python3-uvicorn python3-psutil python3-requests python3-full 2>/dev/null; then
     log "System packages installed successfully"
     
     # Test if they work

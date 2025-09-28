@@ -16,6 +16,7 @@ PI_USER="pi"
 PI_HOME="/home/${PI_USER}"
 INSTALL_DIR="${PI_HOME}/pi-player"
 PYTHON_REQUIREMENTS="fastapi[standard] uvicorn[standard] psutil requests"
+INTERACTIVE_MODE=false
 
 # Logging
 log() {
@@ -60,8 +61,8 @@ check_os() {
 # Update system packages
 update_system() {
     log "Updating system packages..."
-    sudo apt update
-    sudo apt upgrade -y
+    sudo apt update -qq
+    sudo apt upgrade -y -qq
     success "System packages updated"
 }
 
@@ -87,7 +88,7 @@ install_system_deps() {
             log "$package is already installed"
         else
             log "Installing $package..."
-            sudo apt install -y "$package"
+            sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq "$package"
         fi
     done
     
@@ -100,7 +101,7 @@ install_python_deps() {
     
     # Try system packages first (preferred method)
     log "Installing Python packages via apt..."
-    sudo apt install -y python3-fastapi python3-uvicorn python3-psutil python3-requests 2>/dev/null || {
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq python3-fastapi python3-uvicorn python3-psutil python3-requests 2>/dev/null || {
         log "Some packages not available via apt, using pip with virtual environment..."
         
         # Create virtual environment
@@ -337,6 +338,31 @@ show_completion() {
     echo
 }
 
+# Parse command line arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --interactive)
+                INTERACTIVE_MODE=true
+                shift
+                ;;
+            --help|-h)
+                echo "Pi Player Installer"
+                echo "Usage: $0 [options]"
+                echo "Options:"
+                echo "  --interactive    Enable interactive prompts (default: non-interactive)"
+                echo "  --help, -h       Show this help message"
+                exit 0
+                ;;
+            *)
+                warning "Unknown option: $1"
+                echo "Use --help for usage information"
+                exit 1
+                ;;
+        esac
+    done
+}
+
 # Main installation function
 main() {
     echo -e "${GREEN}"
@@ -344,18 +370,23 @@ main() {
     echo "║                            Pi Player Installer                              ║"
     echo "║                                                                              ║"
     echo "║  This script will install Pi Player with all dependencies and services      ║"
-    echo "║  Press Ctrl+C to cancel or Enter to continue...                             ║"
+    echo "║  Running in non-interactive mode for headless deployment...                 ║"
     echo "╚══════════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
     
-    read -p "Continue? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Installation cancelled."
-        exit 0
+    # Handle interactive vs non-interactive mode
+    if [[ "$INTERACTIVE_MODE" == "true" ]]; then
+        read -p "Continue? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Installation cancelled."
+            exit 0
+        fi
+        log "Starting Pi Player installation..."
+    else
+        log "Starting automated installation..."
+        log "(Use --interactive flag to enable prompts)"
     fi
-    
-    log "Starting Pi Player installation..."
     
     check_root
     check_os
@@ -374,5 +405,6 @@ main() {
 
 # Run main function if script is executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    parse_args "$@"
     main "$@"
 fi
