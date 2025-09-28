@@ -1,0 +1,48 @@
+[Unit]
+Description=Pi Player Media Player Daemon
+Documentation=https://github.com/your-org/pi-player
+After=graphical-session.target sound.target
+Wants=graphical-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/pi-player
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/home/pi/pi-player
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+Environment=PULSE_SERVER=tcp:localhost:4713
+ExecStart=/usr/bin/python3 /home/pi/pi-player/media_player.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=media-player
+
+# Security settings (less restrictive for media playback)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/home/pi/pi-player
+ReadOnlyPaths=/usr/bin/vlc /usr/bin/cvlc /usr/bin/feh /usr/bin/ffmpeg
+
+# Resource limits
+LimitNOFILE=1024
+LimitNPROC=512
+
+# Allow access to audio/video devices
+DeviceAllow=/dev/dri rw
+DeviceAllow=/dev/snd rw
+DeviceAllow=char-alsa rw
+
+[Install]
+WantedBy=graphical-session.target
