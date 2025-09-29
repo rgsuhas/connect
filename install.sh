@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Configuration
 PI_USER="pi"
 PI_HOME="/home/${PI_USER}"
-INSTALL_DIR="${PI_HOME}/pi-player"
+INSTALL_DIR="${PI_HOME}/connect"
 PYTHON_REQUIREMENTS="fastapi[standard] uvicorn[standard] psutil requests"
 INTERACTIVE_MODE=false
 
@@ -327,9 +327,9 @@ curl -s http://localhost:8000/health 2>/dev/null | python3 -m json.tool || echo 
 echo
 echo "Logs (last 5 lines):"
 echo "  API Server:"
-tail -5 /home/pi/pi-player/logs/pi_server.log 2>/dev/null | sed 's/^/    /' || echo "    No logs found"
+tail -5 /home/pi/connect/logs/pi_server.log 2>/dev/null | sed 's/^/    /' || echo "    No logs found"
 echo "  Media Player:"
-tail -5 /home/pi/pi-player/logs/media_player.log 2>/dev/null | sed 's/^/    /' || echo "    No logs found"
+tail -5 /home/pi/connect/logs/media_player.log 2>/dev/null | sed 's/^/    /' || echo "    No logs found"
 EOF
     
     # Restart script
@@ -345,7 +345,7 @@ EOF
     cat > "${INSTALL_DIR}/update.sh" << 'EOF'
 #!/bin/bash
 echo "Updating Pi Player..."
-cd /home/pi/pi-player
+cd /home/pi/connect
 git pull origin main || echo "No git repository found"
 sudo systemctl restart pi-player.service
 sudo systemctl restart media-player.service

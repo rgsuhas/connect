@@ -10,13 +10,13 @@ StartLimitIntervalSec=60
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/pi-player
+WorkingDirectory=/home/pi/connect
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PYTHONPATH=/home/pi/pi-player
+Environment=PYTHONPATH=/home/pi/connect
 Environment=PYTHONUNBUFFERED=1
 Environment=DISPLAY=:0
 Environment=PULSE_SERVER=tcp:localhost:4713
-ExecStart=/bin/bash -c 'if [ -f /home/pi/pi-player/venv/bin/python ]; then /home/pi/pi-player/venv/bin/python /home/pi/pi-player/media_player.py; else /usr/bin/python3 /home/pi/pi-player/media_player.py; fi'
+ExecStart=/bin/bash -c 'if [ -f /home/pi/connect/venv/bin/python ]; then /home/pi/connect/venv/bin/python /home/pi/connect/media_player.py; else /usr/bin/python3 /home/pi/connect/media_player.py; fi'
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGTERM
@@ -32,7 +32,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=/home/pi/pi-player
+ReadWritePaths=/home/pi/connect
 ReadOnlyPaths=/usr/bin/vlc /usr/bin/cvlc /usr/bin/feh /usr/bin/ffmpeg
 
 # Resource limits

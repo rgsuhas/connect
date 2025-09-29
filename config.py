@@ -14,7 +14,7 @@ class Config:
     """Configuration settings for Pi Player system"""
     
     # Base paths
-    BASE_DIR: Path = Path("/home/pi/pi-player")
+    BASE_DIR: Path = Path("/home/pi/connect")
     MEDIA_CACHE_DIR: Path = BASE_DIR / "media_cache"
     LOGS_DIR: Path = BASE_DIR / "logs" 
     SERVICES_DIR: Path = BASE_DIR / "services"
@@ -114,7 +114,7 @@ config = Config()
 if os.getenv('PI_PLAYER_DEV', '').lower() == 'true':
     # Use current directory for development
     current_dir = Path.cwd()
-    config.BASE_DIR = current_dir / "pi-player"
+    config.BASE_DIR = current_dir / "connect"
     config.MEDIA_CACHE_DIR = config.BASE_DIR / "media_cache"
     config.LOGS_DIR = config.BASE_DIR / "logs"
     config.SERVICES_DIR = config.BASE_DIR / "services"
