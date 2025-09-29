@@ -1,0 +1,44 @@
+[Unit]
+Description=Pi Player - Enhanced Media Player
+Documentation=https://github.com/your-org/pi-player
+After=network.target multi-user.target graphical.target
+Wants=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=rgsuhas
+Group=rgsuhas
+WorkingDirectory=/home/rgsuhas/pi-player
+Environment=DISPLAY=:0
+Environment=HOME=/home/rgsuhas
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+
+# Main command
+ExecStart=/usr/bin/python3 /home/rgsuhas/pi-player/main.py --log-level INFO
+
+# Service management
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/rgsuhas/pi-player
+ProtectHome=true
+
+# Logging
+StandardOutput=append:/home/rgsuhas/pi-player/logs/service.log
+StandardError=append:/home/rgsuhas/pi-player/logs/service_error.log
+SyslogIdentifier=pi-player
+
+# Process settings
+KillMode=mixed
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

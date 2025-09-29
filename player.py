@@ -1,0 +1,686 @@
+#!/usr/bin/env python3
+"""
+Enhanced Media Player for Pi Player
+Plays cached media with fallback to default assets, comprehensive logging
+"""
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+import threading
+import psutil
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Any, Tuple
+
+from log_setup import setup_logging, get_system_info, log_system_startup
+from config import config
+from download_manager import load_and_download_playlist, get_cache_status
+
+# Setup logging
+logger = setup_logging("player", log_level="DEBUG")
+
+class MediaPlayer:
+    """Enhanced media player with caching and comprehensive logging"""
+    
+    def __init__(self):
+        self.current_process: Optional[subprocess.Popen] = None
+        self.playlist: List[Dict] = []
+        self.current_index = 0
+        self.should_stop = False
+        self.playlist_version = None
+        self.loop_enabled = True
+        self.showing_default_screen = False
+        self.no_playlist_since = None
+        
+        # Thread management
+        self.watcher_thread = None
+        self.player_thread = None
+        self.monitor_thread = None
+        self.lock = threading.Lock()
+        
+        # System monitoring
+        self.last_system_log = datetime.now()
+        self.system_log_interval = timedelta(minutes=5)  # Log system stats every 5 minutes
+        
+        # Player preferences (in order of preference)
+        self.video_players = ['mpv', 'vlc', 'cvlc']
+        self.image_viewers = ['feh', 'display', 'eog']
+        self.selected_video_player = None
+        self.selected_image_viewer = None
+        
+        logger.info("Media Player initialized")
+        log_system_startup(logger)
+        self._detect_players()
+    
+    def _detect_players(self):
+        """Detect available media players and viewers"""
+        logger.info("Detecting available media players...")
+        
+        # Detect video players
+        for player in self.video_players:
+            if self._is_command_available(player):
+                self.selected_video_player = player
+                logger.info(f"Selected video player: {player}")
+                break
+        
+        if not self.selected_video_player:
+            logger.error("No supported video player found! Install one of: " + ", ".join(self.video_players))
+        
+        # Detect image viewers
+        for viewer in self.image_viewers:
+            if self._is_command_available(viewer):
+                self.selected_image_viewer = viewer
+                logger.info(f"Selected image viewer: {viewer}")
+                break
+        
+        if not self.selected_image_viewer:
+            logger.warning("No supported image viewer found! Install one of: " + ", ".join(self.image_viewers))
+    
+    def _is_command_available(self, command: str) -> bool:
+        """Check if a command is available in PATH"""
+        try:
+            subprocess.run(['which', command], check=True, capture_output=True)
+            return True
+        except subprocess.CalledProcessError:
+            return False
+    
+    def update_playback_state(self, status: str, current_item: str = None):
+        """Update playback state file with comprehensive information"""
+        try:
+            now = datetime.now().isoformat()
+            
+            # Get current system stats for state file
+            system_info = self._get_current_system_stats()
+            
+            state = {
+                "status": status,
+                "current_item": current_item,
+                "current_item_path": None,
+                "playlist_position": self.current_index,
+                "playlist_version": self.playlist_version,
+                "playlist_total": len(self.playlist),
+                "loop_enabled": self.loop_enabled,
+                "selected_video_player": self.selected_video_player,
+                "selected_image_viewer": self.selected_image_viewer,
+                "last_updated": now,
+                "system_stats": system_info
+            }
+            
+            # Add file path if we have a current item
+            if current_item and self.current_index < len(self.playlist):
+                item = self.playlist[self.current_index]
+                cached_path = config.get_media_path(item.get('filename', ''))
+                if cached_path.exists():
+                    state["current_item_path"] = str(cached_path)
+            
+            # Track last playback timestamp for backend reporting
+            if status == "playing" and current_item:
+                state["last_playback_timestamp"] = now
+                
+                # Store in separate file for backend access
+                try:
+                    last_playback_file = config.BASE_DIR / "last_playback.json"
+                    with open(last_playback_file, 'w') as f:
+                        json.dump({
+                            "timestamp": now,
+                            "item": current_item,
+                            "item_path": state.get("current_item_path"),
+                            "playlist_version": self.playlist_version,
+                            "player": self.selected_video_player or self.selected_image_viewer
+                        }, f, indent=2)
+                except Exception as e:
+                    logger.debug(f"Could not save last playback timestamp: {e}")
+            
+            # Write main state file
+            with open(config.PLAYBACK_STATE_FILE, 'w') as f:
+                json.dump(state, f, indent=2)
+                
+            logger.debug(f"Playback state updated: {status} - {current_item}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update playback state: {e}", exc_info=True)
+    
+    def _get_current_system_stats(self) -> Dict[str, Any]:
+        """Get current system statistics"""
+        try:
+            return {
+                "cpu_percent": psutil.cpu_percent(interval=1),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_usage_percent": psutil.disk_usage(str(config.BASE_DIR)).percent,
+                "temperature": self._get_temperature(),
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.debug(f"Could not get system stats: {e}")
+            return {"error": str(e)}
+    
+    def _get_temperature(self) -> Optional[float]:
+        """Get system temperature if available"""
+        try:
+            if Path(config.TEMPERATURE_SENSOR_PATH).exists():
+                with open(config.TEMPERATURE_SENSOR_PATH, 'r') as f:
+                    temp_raw = int(f.read().strip())
+                    return round(temp_raw / 1000.0, 1)
+        except:
+            pass
+        return None
+    
+    def load_playlist(self) -> bool:
+        """Load playlist from disk and check if it changed"""
+        try:
+            if not config.PLAYLIST_FILE.exists():
+                logger.info("No playlist file found, will show default screen")
+                if self.no_playlist_since is None:
+                    self.no_playlist_since = datetime.now()
+                return False
+            
+            with open(config.PLAYLIST_FILE, 'r') as f:
+                data = json.load(f)
+            
+            new_version = data.get("version", "unknown")
+            
+            # Check if playlist changed
+            if new_version != self.playlist_version:
+                with self.lock:
+                    self.playlist = data.get("items", [])
+                    self.playlist_version = new_version
+                    self.loop_enabled = data.get("loop", True)
+                    self.current_index = 0  # Reset to beginning
+                    
+                    # Reset no playlist tracking when we get content
+                    if self.playlist:
+                        self.no_playlist_since = None
+                        if self.showing_default_screen:
+                            self.showing_default_screen = False
+                
+                logger.info(f"Loaded playlist v{new_version} with {len(self.playlist)} items", extra={
+                    "custom_fields": {
+                        "event_type": "playlist_loaded",
+                        "version": new_version,
+                        "item_count": len(self.playlist),
+                        "loop_enabled": self.loop_enabled
+                    }
+                })
+                
+                # Log playlist contents
+                for i, item in enumerate(self.playlist):
+                    filename = item.get('filename', 'unknown')
+                    duration = item.get('duration', 'unknown')
+                    logger.debug(f"  {i+1}. {filename} ({duration}s)")
+                
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Failed to load playlist: {e}", exc_info=True)
+            return False
+    
+    def stop_current_player(self):
+        """Stop current media player process"""
+        if self.current_process and self.current_process.poll() is None:
+            try:
+                logger.info(f"Stopping {self.selected_video_player or self.selected_image_viewer} process {self.current_process.pid}")
+                
+                # Try graceful termination first
+                self.current_process.terminate()
+                
+                # Give it time to terminate gracefully
+                try:
+                    self.current_process.wait(timeout=3)
+                    logger.info("Process terminated gracefully")
+                except subprocess.TimeoutExpired:
+                    logger.warning("Process didn't terminate gracefully, killing it")
+                    self.current_process.kill()
+                    self.current_process.wait(timeout=2)
+                    logger.info("Process killed")
+                
+            except Exception as e:
+                logger.error(f"Failed to stop player process: {e}", exc_info=True)
+            finally:
+                self.current_process = None
+    
+    def get_media_file_path(self, item: Dict) -> Optional[Path]:
+        """Get the actual path to play for a media item (cached or fallback)"""
+        filename = item.get('filename')
+        if not filename:
+            logger.error(f"No filename in playlist item: {item}")
+            return None
+        
+        # Check cache first
+        cached_path = config.get_media_path(filename)
+        if cached_path.exists() and cached_path.stat().st_size > 0:
+            logger.debug(f"Using cached file: {cached_path}")
+            return cached_path
+        
+        # Look for fallback in default_assets
+        default_path = config.BASE_DIR / "default_assets" / filename
+        if default_path.exists():
+            logger.info(f"Using fallback file: {default_path}")
+            return default_path
+        
+        # Look for any similar file in default_assets (for fallbacks)
+        default_dir = config.BASE_DIR / "default_assets"
+        if default_dir.exists():
+            # Look for files with similar names or extensions
+            name_base = Path(filename).stem
+            extension = Path(filename).suffix
+            
+            for fallback_file in default_dir.iterdir():
+                if fallback_file.is_file():
+                    if (name_base.lower() in fallback_file.stem.lower() or 
+                        fallback_file.suffix.lower() == extension.lower()):
+                        logger.info(f"Using similar fallback file: {fallback_file}")
+                        return fallback_file
+        
+        logger.error(f"No media file found for: {filename}")
+        return None
+    
+    def create_default_screen_if_needed(self):
+        """Create default screen image if needed"""
+        default_path = config.DEFAULT_SCREEN_PATH
+        
+        if not default_path.exists():
+            try:
+                # Create default assets directory
+                default_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Try to create a simple default image using PIL
+                try:
+                    from PIL import Image, ImageDraw, ImageFont
+                    
+                    width, height = 1920, 1080
+                    image = Image.new('RGB', (width, height), color='#1a1a2e')
+                    draw = ImageDraw.Draw(image)
+                    
+                    # Add text
+                    try:
+                        # Try to use a larger font
+                        font = ImageFont.load_default()
+                        text_lines = [
+                            "Pi Player - Ready for Content",
+                            f"System: {os.uname().nodename}",
+                            f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                            "Waiting for playlist..."
+                        ]
+                        
+                        y_offset = height // 2 - len(text_lines) * 30
+                        for line in text_lines:
+                            text_bbox = draw.textbbox((0, 0), line, font=font)
+                            text_width = text_bbox[2] - text_bbox[0]
+                            text_x = (width - text_width) // 2
+                            draw.text((text_x, y_offset), line, fill='white', font=font)
+                            y_offset += 60
+                            
+                    except Exception:
+                        # Fallback without font
+                        draw.rectangle([(width//4, height//2-50), (3*width//4, height//2+50)], fill='#333366')
+                    
+                    image.save(str(default_path), 'PNG')
+                    logger.info(f"Created default screen image at {default_path}")
+                    
+                except ImportError:
+                    # PIL not available, create a simple text file that some viewers can display
+                    default_path.write_text(f"""Pi Player - Default Screen
+Waiting for playlist...
+
+System: {os.uname().nodename}
+Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Cache Directory: {config.MEDIA_CACHE_DIR}
+""")
+                    logger.warning("PIL not available, created text placeholder")
+                    
+            except Exception as e:
+                logger.error(f"Failed to create default screen: {e}", exc_info=True)
+    
+    def show_default_screen(self) -> bool:
+        """Display the default screen"""
+        if not config.SHOW_DEFAULT_SCREEN:
+            return False
+            
+        self.create_default_screen_if_needed()
+        
+        if not config.DEFAULT_SCREEN_PATH.exists():
+            logger.warning("Default screen image not available")
+            return False
+        
+        if not self.selected_image_viewer:
+            logger.error("No image viewer available for default screen")
+            return False
+        
+        try:
+            # Stop any current player
+            self.stop_current_player()
+            
+            # Build command based on image viewer
+            if self.selected_image_viewer == 'feh':
+                cmd = [
+                    "feh",
+                    "--fullscreen",
+                    "--hide-pointer",
+                    "--no-menus",
+                    "--zoom", "fill",
+                    str(config.DEFAULT_SCREEN_PATH)
+                ]
+            elif self.selected_image_viewer == 'display':  # ImageMagick
+                cmd = [
+                    "display",
+                    "-fullscreen",
+                    str(config.DEFAULT_SCREEN_PATH)
+                ]
+            else:  # fallback
+                cmd = [self.selected_image_viewer, str(config.DEFAULT_SCREEN_PATH)]
+            
+            logger.info(f"Showing default screen with {self.selected_image_viewer}")
+            
+            # Start the image viewer
+            self.current_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                env=dict(os.environ, DISPLAY=os.environ.get('DISPLAY', ':0'))
+            )
+            
+            self.showing_default_screen = True
+            self.update_playback_state("default_screen", "default_screen.png")
+            
+            logger.info("Default screen displayed", extra={
+                "custom_fields": {
+                    "event_type": "default_screen_displayed",
+                    "viewer": self.selected_image_viewer,
+                    "image_path": str(config.DEFAULT_SCREEN_PATH)
+                }
+            })
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to show default screen: {e}", exc_info=True)
+            return False
+    
+    def play_media_item(self, item: Dict) -> bool:
+        """Play a single media item"""
+        filename = item.get('filename', 'unknown')
+        duration = item.get('duration', 0)
+        
+        logger.info(f"Starting playback: {filename}")
+        
+        # Get the actual file path
+        media_path = self.get_media_file_path(item)
+        if not media_path:
+            logger.error(f"Cannot play {filename}: file not found")
+            return False
+        
+        # Determine if it's video or image
+        is_video = config.is_video_file(str(media_path))
+        is_image = config.is_image_file(str(media_path))
+        
+        if not is_video and not is_image:
+            logger.warning(f"Unknown media type for {filename}, treating as video")
+            is_video = True
+        
+        # Select appropriate player
+        if is_video and not self.selected_video_player:
+            logger.error(f"No video player available for {filename}")
+            return False
+        elif is_image and not self.selected_image_viewer:
+            logger.error(f"No image viewer available for {filename}")
+            return False
+        
+        try:
+            # Stop current player
+            self.stop_current_player()
+            
+            # Build command
+            if is_video:
+                cmd = self._build_video_command(media_path, item)
+                player_name = self.selected_video_player
+            else:
+                cmd = self._build_image_command(media_path, item)
+                player_name = self.selected_image_viewer
+            
+            logger.info(f"Starting {player_name} for {filename}", extra={
+                "custom_fields": {
+                    "event_type": "playback_started",
+                    "filename": filename,
+                    "media_path": str(media_path),
+                    "player": player_name,
+                    "duration": duration,
+                    "media_type": "video" if is_video else "image"
+                }
+            })
+            
+            # Start playback
+            start_time = time.time()
+            self.current_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=dict(os.environ, DISPLAY=os.environ.get('DISPLAY', ':0'))
+            )
+            
+            self.update_playback_state("playing", filename)
+            
+            # Wait for completion
+            if is_image and duration > 0:
+                # For images, wait for the specified duration
+                logger.debug(f"Waiting {duration} seconds for image display")
+                time.sleep(duration)
+                self.stop_current_player()
+            else:
+                # For videos, wait for process to complete
+                stdout, stderr = self.current_process.communicate()
+                
+            end_time = time.time()
+            actual_duration = end_time - start_time
+            
+            logger.info(f"Playback completed: {filename} ({actual_duration:.1f}s)", extra={
+                "custom_fields": {
+                    "event_type": "playback_completed", 
+                    "filename": filename,
+                    "expected_duration": duration,
+                    "actual_duration": actual_duration,
+                    "exit_code": self.current_process.returncode if self.current_process else 0
+                }
+            })
+            
+            # Log any stderr output
+            if stderr:
+                stderr_text = stderr.decode('utf-8', errors='ignore').strip()
+                if stderr_text:
+                    logger.debug(f"Player stderr for {filename}: {stderr_text}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to play {filename}: {e}", exc_info=True)
+            return False
+        finally:
+            self.current_process = None
+    
+    def _build_video_command(self, media_path: Path, item: Dict) -> List[str]:
+        """Build video player command"""
+        if self.selected_video_player == 'mpv':
+            return [
+                "mpv",
+                "--fullscreen",
+                "--no-osd-msg",
+                "--no-input-default-bindings", 
+                "--input-conf=/dev/null",
+                "--really-quiet",
+                str(media_path)
+            ]
+        elif self.selected_video_player in ['vlc', 'cvlc']:
+            return [
+                self.selected_video_player,
+                "--fullscreen",
+                "--no-osd",
+                "--intf", "dummy",
+                "--play-and-exit",
+                str(media_path)
+            ]
+        else:
+            # Generic fallback
+            return [self.selected_video_player, str(media_path)]
+    
+    def _build_image_command(self, media_path: Path, item: Dict) -> List[str]:
+        """Build image viewer command"""
+        if self.selected_image_viewer == 'feh':
+            return [
+                "feh",
+                "--fullscreen",
+                "--hide-pointer",
+                "--no-menus",
+                "--zoom", "fill",
+                str(media_path)
+            ]
+        elif self.selected_image_viewer == 'display':
+            return [
+                "display",
+                "-fullscreen",
+                str(media_path)
+            ]
+        else:
+            # Generic fallback
+            return [self.selected_image_viewer, str(media_path)]
+    
+    def log_system_stats(self):
+        """Log system statistics periodically"""
+        try:
+            stats = self._get_current_system_stats()
+            cache_status = get_cache_status()
+            
+            logger.info("System statistics", extra={
+                "custom_fields": {
+                    "event_type": "system_stats",
+                    "system": stats,
+                    "cache_files": cache_status.get('total_files', 0),
+                    "cache_size_mb": cache_status.get('total_size_mb', 0)
+                }
+            })
+            
+            self.last_system_log = datetime.now()
+            
+        except Exception as e:
+            logger.debug(f"Failed to log system stats: {e}")
+    
+    def run_playback_loop(self):
+        """Main playback loop"""
+        logger.info("Starting playback loop")
+        
+        try:
+            while not self.should_stop:
+                # Check for playlist updates
+                playlist_changed = self.load_playlist()
+                
+                if not self.playlist:
+                    # No playlist, show default screen if needed
+                    if not self.showing_default_screen:
+                        if self.show_default_screen():
+                            time.sleep(30)  # Show default screen for 30 seconds
+                        else:
+                            time.sleep(5)   # Wait and retry
+                    else:
+                        time.sleep(5)  # Already showing default screen
+                    continue
+                
+                # Ensure download manager has run for current playlist
+                if playlist_changed:
+                    logger.info("Playlist changed, verifying cached files...")
+                    try:
+                        download_result = load_and_download_playlist()
+                        if download_result.get('errors', 0) > 0:
+                            logger.warning(f"Some downloads failed: {download_result.get('errors', 0)} errors")
+                    except Exception as e:
+                        logger.error(f"Failed to update cache: {e}")
+                
+                # Play current item
+                if self.current_index < len(self.playlist):
+                    item = self.playlist[self.current_index]
+                    success = self.play_media_item(item)
+                    
+                    if not success:
+                        logger.error(f"Failed to play item {self.current_index}: {item.get('filename', 'unknown')}")
+                    
+                    # Move to next item
+                    self.current_index += 1
+                    
+                    # Check if we've reached the end
+                    if self.current_index >= len(self.playlist):
+                        if self.loop_enabled:
+                            logger.info("Playlist completed, looping...")
+                            self.current_index = 0
+                        else:
+                            logger.info("Playlist completed, no loop enabled")
+                            break
+                else:
+                    # Reset if index is out of bounds
+                    self.current_index = 0
+                
+                # Log system stats periodically
+                if datetime.now() - self.last_system_log > self.system_log_interval:
+                    self.log_system_stats()
+                
+                # Small delay between items
+                if not self.should_stop:
+                    time.sleep(1)
+                    
+        except KeyboardInterrupt:
+            logger.info("Playback loop interrupted by user")
+        except Exception as e:
+            logger.error(f"Playback loop error: {e}", exc_info=True)
+        finally:
+            self.stop_current_player()
+            self.update_playback_state("stopped")
+            logger.info("Playback loop ended")
+    
+    def stop(self):
+        """Stop the player gracefully"""
+        logger.info("Stopping media player...")
+        self.should_stop = True
+        self.stop_current_player()
+        
+        # Wait for threads to finish
+        for thread in [self.watcher_thread, self.player_thread, self.monitor_thread]:
+            if thread and thread.is_alive():
+                thread.join(timeout=2)
+        
+        logger.info("Media player stopped")
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    logger.info(f"Received signal {signum}, shutting down gracefully...")
+    if 'player' in globals():
+        player.stop()
+    sys.exit(0)
+
+def main():
+    """Main entry point"""
+    print("🎬 Pi Player Enhanced Media Player")
+    print("=" * 50)
+    
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Create player
+    global player
+    player = MediaPlayer()
+    
+    try:
+        # Initialize and run
+        logger.info("Pi Player starting...")
+        player.run_playback_loop()
+        
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        return 1
+    
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
