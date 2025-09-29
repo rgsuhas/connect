@@ -66,3 +66,7 @@ yes.pub
 # Local configuration overrides
 config_local.py
 local_settings.py
+# Pi Player runtime files
+last_playback.json
+*.pyc
+*.pyo

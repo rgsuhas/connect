@@ -1,0 +1,39 @@
+{
+  "version": "default-samples-v1.0",
+  "last_updated": "2025-09-30T01:21:56.225494",
+  "loop": true,
+  "description": "Default sample video playlist - immediate playback capability",
+  "source": "default_samples",
+  "items": [
+    {
+      "filename": "big_buck_bunny.mp4",
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "duration": 60,
+      "checksum": null
+    },
+    {
+      "filename": "elephants_dream.mp4",
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+      "duration": 60,
+      "checksum": null
+    },
+    {
+      "filename": "for_bigger_blazes.mp4",
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "duration": 15,
+      "checksum": null
+    },
+    {
+      "filename": "for_bigger_escapes.mp4",
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+      "duration": 15,
+      "checksum": null
+    },
+    {
+      "filename": "for_bigger_fun.mp4",
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+      "duration": 60,
+      "checksum": null
+    }
+  ]
+}

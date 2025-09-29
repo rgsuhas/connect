@@ -13,14 +13,16 @@ from pathlib import Path
 class Config:
     """Configuration settings for Pi Player system"""
     
-    # Base paths
-    BASE_DIR: Path = Path("/home/pi/connect")
+    # Base paths - use current working directory instead of hardcoded path
+    BASE_DIR: Path = Path.cwd()
     MEDIA_CACHE_DIR: Path = BASE_DIR / "media_cache"
     LOGS_DIR: Path = BASE_DIR / "logs" 
     SERVICES_DIR: Path = BASE_DIR / "services"
     
     # Data files
-    PLAYLIST_FILE: Path = BASE_DIR / "current_playlist.json"
+    PLAYLISTS_DIR: Path = BASE_DIR / "playlists"
+    PLAYLIST_FILE: Path = BASE_DIR / "current_playlist.json"  # Active/current playlist
+    DEFAULT_PLAYLIST_FILE: Path = PLAYLISTS_DIR / "default.json"  # Default sample playlist
     PLAYBACK_STATE_FILE: Path = BASE_DIR / "playback_state.json"
     
     # API settings
@@ -76,12 +78,14 @@ class Config:
     def __post_init__(self):
         """Initialize computed values and create directories"""
         if self.PLAYER_PROCESSES is None:
-            self.PLAYER_PROCESSES = ["vlc", "cvlc", "ffmpeg", "feh"]
+            self.PLAYER_PROCESSES = ["vlc", "cvlc", "ffmpeg", "feh", "mpv"]
         
-        # Ensure directories exist
+        # Ensure all directories exist
         self.MEDIA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         self.LOGS_DIR.mkdir(parents=True, exist_ok=True)
         self.SERVICES_DIR.mkdir(parents=True, exist_ok=True)
+        self.PLAYLISTS_DIR.mkdir(parents=True, exist_ok=True)
+        (self.BASE_DIR / "default_assets").mkdir(parents=True, exist_ok=True)
     
     def get_log_path(self, component_name: str) -> Path:
         """Get log file path for a component"""
