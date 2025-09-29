@@ -39,6 +39,22 @@ class Config:
     DEFAULT_SCREEN_PATH: Path = BASE_DIR / "default_assets" / "default_screen.png"
     DEFAULT_SCREEN_TIMEOUT: int = 30    # seconds before showing default screen
     
+    # Backend integration settings
+    BACKEND_ENABLED: bool = True
+    BACKEND_BASE_URL: str = "http://localhost:3001"
+    BACKEND_API_KEY: str = "12345678"
+    DEVICE_ID: str = "PI-PLAYER-001"  # Unique device identifier
+    HARDWARE_ID: str = "68da17212d8ff0001d095d88"  # Hardware ID for API endpoints
+    
+    # Heartbeat settings
+    HEARTBEAT_INTERVAL: int = 30        # seconds between heartbeat reports
+    HEARTBEAT_TIMEOUT: int = 10         # HTTP request timeout
+    HEARTBEAT_RETRIES: int = 3          # retry attempts on failure
+    
+    # Telemetry settings
+    TELEMETRY_REPORT_INTERVAL: int = 60 # seconds between telemetry reports
+    TELEMETRY_TIMEOUT: int = 15         # HTTP request timeout
+    
     # Download settings
     DOWNLOAD_TIMEOUT: int = 30          # seconds
     MAX_CONCURRENT_DOWNLOADS: int = 3

@@ -1,0 +1,46 @@
+Request URL:
+http://localhost:3001/api/hardware/68da17212d8ff0001d095d88/heartbeat
+
+Request Body:
+{
+    "device_id": "CTRL-TRUCK-001",
+    "status": "online",
+    "uptime_seconds": 1860,
+    "last_ad_playback_timestamp": "2025-09-29T06:35:40.000Z"
+}
+
+Headers:
+x-api-key: 12345678
+
+Response:
+{
+    "status": "success",
+    "timestamp": "2025-09-29T16:22:46.383Z"
+}
+
+---
+
+Response Example:
+{
+    "timestamp": "2025-09-29T16:24:54.707Z",
+    "device": {
+        "id": "TRUCK_001",
+        "uptime_sec": 1860,
+        "status": "online",
+        "last_heartbeat": "2025-09-29T16:22:46.319Z"
+    },
+    "player": {
+        "status": "ready",
+        "playlist_version": "v0",
+        "last_ad_playback": "2025-09-29T06:35:40.000Z"
+    },
+    "errors": []
+}
+
+---
+
+Request URL:
+http://localhost:3001/api/hardware/68da17212d8ff0001d095d88/telemetry
+
+Headers:
+x-api-key: 12345678

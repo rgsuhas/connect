@@ -51,14 +51,32 @@ class MediaPlayer:
     def update_playback_state(self, status: str, current_item: str = None):
         """Update playback state file"""
         try:
+            now = datetime.now().isoformat()
+            
             state = {
                 "status": status,
                 "current_item": current_item,
                 "playlist_position": self.current_index,
                 "playlist_version": self.playlist_version,
                 "playlist_total": len(self.playlist),
-                "last_updated": datetime.now().isoformat()
+                "last_updated": now
             }
+            
+            # Track last playback timestamp for backend reporting
+            if status == "playing" and current_item:
+                state["last_playback_timestamp"] = now
+                # Store in a separate file for backend access
+                try:
+                    last_playback_file = config.BASE_DIR / "last_playback.json"
+                    with open(last_playback_file, 'w') as f:
+                        json.dump({
+                            "timestamp": now,
+                            "item": current_item,
+                            "playlist_version": self.playlist_version
+                        }, f)
+                except Exception as e:
+                    logger.debug(f"Could not save last playback timestamp: {e}")
+            
             with open(config.PLAYBACK_STATE_FILE, 'w') as f:
                 json.dump(state, f, indent=2)
         except Exception as e:

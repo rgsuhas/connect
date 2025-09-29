@@ -19,6 +19,7 @@ import uvicorn
 from config import config
 from telemetry import get_stats
 from media_downloader import update_cache_for_playlist
+from backend_client import get_backend_client
 
 # Setup logging
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL))
@@ -219,6 +220,11 @@ async def get_telemetry():
             }
         }
         
+        # Add backend integration status
+        if config.BACKEND_ENABLED:
+            backend_client = get_backend_client()
+            stats["backend"] = backend_client.get_backend_status()
+        
         return stats
         
     except Exception as e:
@@ -260,6 +266,55 @@ async def control_playback(action: str):
         raise HTTPException(status_code=500, detail=f"Control action failed: {str(e)}")
 
 
+@app.post("/backend/heartbeat")
+async def backend_heartbeat():
+    """Manual heartbeat trigger for backend"""
+    try:
+        if not config.BACKEND_ENABLED:
+            return {"status": "disabled", "message": "Backend integration disabled"}
+        
+        backend_client = get_backend_client()
+        result = backend_client.send_heartbeat()
+        
+        return result
+        
+    except Exception as e:
+        logger.exception(f"Manual heartbeat failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Heartbeat failed: {str(e)}")
+
+
+@app.post("/backend/telemetry")
+async def backend_telemetry_push():
+    """Manual telemetry push to backend"""
+    try:
+        if not config.BACKEND_ENABLED:
+            return {"status": "disabled", "message": "Backend integration disabled"}
+        
+        backend_client = get_backend_client()
+        telemetry_data = get_stats()
+        result = backend_client.send_telemetry(telemetry_data)
+        
+        return result
+        
+    except Exception as e:
+        logger.exception(f"Manual telemetry push failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Telemetry push failed: {str(e)}")
+
+
+@app.get("/backend/status")
+async def backend_status():
+    """Get backend integration status"""
+    try:
+        backend_client = get_backend_client()
+        status = backend_client.get_backend_status()
+        
+        return status
+        
+    except Exception as e:
+        logger.exception(f"Backend status check failed: {e}")
+        return {"error": str(e), "timestamp": datetime.now().isoformat()}
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize server state on startup"""
@@ -272,12 +327,24 @@ async def startup_event():
     # Initialize playback state
     update_playback_state("server_started")
     
+    # Start backend integration
+    if config.BACKEND_ENABLED:
+        backend_client = get_backend_client()
+        backend_client.start_periodic_tasks()
+        logger.info("Backend integration started")
+    
     logger.info(f"Pi Player API server started on {config.API_HOST}:{config.API_PORT}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on server shutdown"""
+    # Stop backend integration
+    if config.BACKEND_ENABLED:
+        backend_client = get_backend_client()
+        backend_client.stop_periodic_tasks()
+        logger.info("Backend integration stopped")
+    
     update_playback_state("server_stopped")
     logger.info("Pi Player API server stopped")
 
