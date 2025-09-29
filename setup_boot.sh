@@ -29,7 +29,7 @@ error() {
 
 # Configuration
 PI_USER="${SUDO_USER:-${USER:-pi}}"
-INSTALL_DIR="/home/${PI_USER}/pi-player"
+INSTALL_DIR="/home/${PI_USER}/connect"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 show_banner() {
@@ -68,7 +68,7 @@ setup_cron_startup() {
     log "Setting up cron startup (fallback method)..."
     
     # Check if cron entry already exists
-    if crontab -l 2>/dev/null | grep -q "pi-player/run.sh"; then
+    if crontab -l 2>/dev/null | grep -q "connect/run.sh"; then
         log "Cron entry already exists"
         return 0
     fi
@@ -88,7 +88,7 @@ setup_rclocal_startup() {
     
     if [[ -f "$rc_local" ]]; then
         # Check if entry already exists
-        if grep -q "pi-player/run.sh" "$rc_local"; then
+        if grep -q "connect/run.sh" "$rc_local"; then
             log "rc.local entry already exists"
             return 0
         fi
@@ -171,11 +171,11 @@ test_startup_script() {
 setup_sudoers() {
     log "Configuring sudo permissions for service management..."
     
-    local sudoers_file="/etc/sudoers.d/pi-player"
+    local sudoers_file="/etc/sudoers.d/pi-connect"
     
     # Allow pi user to manage Pi Player services without password
     sudo tee "$sudoers_file" > /dev/null << EOF
-# Pi Player service management
+# Pi Connect service management
 $PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl start pi-player.service
 $PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl stop pi-player.service
 $PI_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart pi-player.service
@@ -260,7 +260,7 @@ main() {
     cat > "$INSTALL_DIR/test_startup.sh" << 'EOF'
 #!/bin/bash
 echo "Testing Pi Player startup manually..."
-/home/pi/pi-player/run.sh
+/home/pi/connect/run.sh
 EOF
     chmod +x "$INSTALL_DIR/test_startup.sh"
     

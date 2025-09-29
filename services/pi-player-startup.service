@@ -10,12 +10,12 @@ StartLimitIntervalSec=300
 Type=oneshot
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/pi-player
+WorkingDirectory=/home/pi/connect
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PYTHONPATH=/home/pi/pi-player
+Environment=PYTHONPATH=/home/pi/connect
 Environment=PYTHONUNBUFFERED=1
 Environment=DISPLAY=:0
-ExecStart=/home/pi/pi-player/run.sh
+ExecStart=/home/pi/connect/run.sh
 RemainAfterExit=yes
 StandardOutput=journal
 StandardError=journal

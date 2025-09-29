@@ -13,7 +13,7 @@ NC='\033[0m'
 
 # Configuration
 PI_USER="${USER:-pi}"
-INSTALL_DIR="/home/${PI_USER}/pi-player"
+INSTALL_DIR="/home/${PI_USER}/connect"
 LOG_FILE="$INSTALL_DIR/logs/startup.log"
 MAX_WAIT_TIME=60  # Maximum time to wait for services
 HEALTH_CHECK_RETRIES=5

@@ -61,6 +61,12 @@ $SUDO_PREFIX cp -v "$SCRIPT_DIR"/*.py "$TARGET_DIR/" || {
     exit 1
 }
 
+# Copy shell scripts
+log "Copying shell scripts..."
+$SUDO_PREFIX cp -v "$SCRIPT_DIR"/*.sh "$TARGET_DIR/" || {
+    warning "Some shell scripts may not be available"
+}
+
 # Copy service files
 log "Copying systemd service files..."
 $SUDO_PREFIX cp -v "$SCRIPT_DIR/services/"*.service "$TARGET_DIR/services/" || {
