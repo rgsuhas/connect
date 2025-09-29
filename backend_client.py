@@ -39,7 +39,12 @@ class BackendClient:
         # Threading for periodic tasks
         self.heartbeat_thread = None
         self.telemetry_thread = None
+        self.playlist_thread = None
         self.should_stop = False
+        
+        # Playlist management
+        self.last_playlist_fetch = None
+        self.last_playlist_version = None
         
     def _create_session(self) -> requests.Session:
         """Create HTTP session with retries and proper headers"""
@@ -141,6 +146,63 @@ class BackendClient:
             error_msg = f"Heartbeat unexpected error: {str(e)}"
             self._add_error(error_msg)
             return {"status": "error", "message": error_msg}
+    
+    def get_playlist_from_backend(self) -> Optional[Dict[str, Any]]:
+        """
+        Fetch playlist from backend API
+        
+        Expected backend response format:
+        {
+            "version": "1.0",
+            "last_updated": "2024-01-01T12:00:00Z",
+            "loop": true,
+            "items": [
+                {
+                    "filename": "video1.mp4",
+                    "url": "https://example.com/video1.mp4",
+                    "checksum": "sha256hash",
+                    "duration": 30
+                }
+            ]
+        }
+        """
+        if not config.BACKEND_ENABLED:
+            logger.debug("Backend integration disabled, no playlist fetch")
+            return None
+        
+        try:
+            # Construct playlist URL
+            url = f"{self.base_url}/api/hardware/{self.hardware_id}/playlist"
+            
+            logger.debug(f"Fetching playlist from {url}")
+            
+            # Send request
+            response = self.session.get(
+                url,
+                timeout=config.HEARTBEAT_TIMEOUT  # Reuse heartbeat timeout
+            )
+            
+            # Handle 404 as "no playlist available" rather than error
+            if response.status_code == 404:
+                logger.info("No playlist available from backend (404)")
+                return None
+            
+            response.raise_for_status()
+            
+            # Parse response
+            playlist_data = response.json()
+            
+            logger.info(f"Received playlist from backend: version {playlist_data.get('version', 'unknown')}")
+            return playlist_data
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Playlist fetch failed: {str(e)}"
+            logger.warning(error_msg)  # Warning instead of error since this is optional
+            return None
+        except Exception as e:
+            error_msg = f"Playlist fetch unexpected error: {str(e)}"
+            logger.warning(error_msg)
+            return None
     
     def send_telemetry(self, telemetry_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -300,6 +362,14 @@ class BackendClient:
         )
         self.telemetry_thread.start()
         
+        # Start playlist fetching thread
+        self.playlist_thread = threading.Thread(
+            target=self._playlist_worker,
+            daemon=True,
+            name="BackendPlaylist"
+        )
+        self.playlist_thread.start()
+        
         logger.info("Backend periodic tasks started")
     
     def _heartbeat_worker(self):
@@ -333,6 +403,58 @@ class BackendClient:
                 logger.error(f"Telemetry worker error: {e}")
                 time.sleep(config.TELEMETRY_REPORT_INTERVAL)
     
+    def _playlist_worker(self):
+        """Worker thread for periodic playlist fetching"""
+        # Initial delay to allow system to start up
+        time.sleep(30)
+        
+        while not self.should_stop:
+            try:
+                # Fetch playlist from backend
+                playlist_data = self.get_playlist_from_backend()
+                
+                if playlist_data:
+                    # Check if playlist changed
+                    new_version = playlist_data.get('version', 'unknown')
+                    if new_version != self.last_playlist_version:
+                        logger.info(f"New playlist version {new_version} received from backend")
+                        self.last_playlist_version = new_version
+                        
+                        # Send playlist to local API
+                        self._update_local_playlist(playlist_data)
+                    else:
+                        logger.debug(f"Playlist version {new_version} unchanged")
+                
+                self.last_playlist_fetch = datetime.now().isoformat()
+                
+                # Wait for next playlist check (default: check every 5 minutes)
+                playlist_interval = getattr(config, 'PLAYLIST_FETCH_INTERVAL', 300)
+                time.sleep(playlist_interval)
+                
+            except Exception as e:
+                logger.error(f"Playlist worker error: {e}")
+                time.sleep(60)  # Wait 1 minute on error
+    
+    def _update_local_playlist(self, playlist_data: Dict[str, Any]):
+        """Update local Pi Player playlist via API"""
+        try:
+            import requests
+            
+            # Send to local API endpoint
+            response = requests.post(
+                "http://localhost:8000/playlist",
+                json=playlist_data,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                logger.info("Successfully updated local playlist from backend")
+            else:
+                logger.warning(f"Failed to update local playlist: HTTP {response.status_code}")
+                
+        except Exception as e:
+            logger.error(f"Failed to update local playlist: {e}")
+    
     def _get_current_playback_timestamp(self) -> Optional[str]:
         """Get current playback timestamp from state file"""
         try:
@@ -357,6 +479,9 @@ class BackendClient:
         
         if self.telemetry_thread and self.telemetry_thread.is_alive():
             self.telemetry_thread.join(timeout=5)
+            
+        if self.playlist_thread and self.playlist_thread.is_alive():
+            self.playlist_thread.join(timeout=5)
         
         logger.info("Backend periodic tasks stopped")
 

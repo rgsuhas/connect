@@ -1,0 +1,102 @@
+{
+  "version": "default-cloudinary-v1.0",
+  "last_updated": "2025-09-30T01:21:56.225423",
+  "loop": true,
+  "description": "Default Cloudinary collection playlist - fallback when no backend playlist available",
+  "source": "default_fallback",
+  "cloudinary_collections": [
+    "https://collection.cloudinary.com/dxfhfpaym/8006a0aeec057b5fdae295b27ea0f1e2",
+    "https://collection.cloudinary.com/dxfhfpaym/a8763aa70fe1ae9284552d3b2aba5ebf",
+    "https://collection.cloudinary.com/dxfhfpaym/173ef9cfc1e34d25a3241c1bfdc6c733",
+    "https://collection.cloudinary.com/dxfhfpaym/329afc666ff08426da6c2f2f2a529ea8",
+    "https://collection.cloudinary.com/dxfhfpaym/d4ac678778867b5fbe15e2a1f10fb589",
+    "https://collection.cloudinary.com/dxfhfpaym/152008e9ff99a72cb8de06f125dab9b8",
+    "https://collection.cloudinary.com/dxfhfpaym/9a919c47d389473ff2d9b4ceff7b1093"
+  ],
+  "items": [
+    {
+      "filename": "cloudinary_collection_1.mp4",
+      "url": "https://collection.cloudinary.com/dxfhfpaym/8006a0aeec057b5fdae295b27ea0f1e2",
+      "duration": 30,
+      "checksum": null,
+      "metadata": {
+        "source": "cloudinary_collection",
+        "collection_id": "8006a0aeec057b5fdae295b27ea0f1e2",
+        "collection_url": "https://collection.cloudinary.com/dxfhfpaym/8006a0aeec057b5fdae295b27ea0f1e2",
+        "note": "This is a Cloudinary collection URL - requires JavaScript to access actual videos"
+      }
+    },
+    {
+      "filename": "cloudinary_collection_2.mp4",
+      "url": "https://collection.cloudinary.com/dxfhfpaym/a8763aa70fe1ae9284552d3b2aba5ebf",
+      "duration": 30,
+      "checksum": null,
+      "metadata": {
+        "source": "cloudinary_collection",
+        "collection_id": "a8763aa70fe1ae9284552d3b2aba5ebf",
+        "collection_url": "https://collection.cloudinary.com/dxfhfpaym/a8763aa70fe1ae9284552d3b2aba5ebf",
+        "note": "This is a Cloudinary collection URL - requires JavaScript to access actual videos"
+      }
+    },
+    {
+      "filename": "cloudinary_collection_3.mp4",
+      "url": "https://collection.cloudinary.com/dxfhfpaym/173ef9cfc1e34d25a3241c1bfdc6c733",
+      "duration": 30,
+      "checksum": null,
+      "metadata": {
+        "source": "cloudinary_collection",
+        "collection_id": "173ef9cfc1e34d25a3241c1bfdc6c733",
+        "collection_url": "https://collection.cloudinary.com/dxfhfpaym/173ef9cfc1e34d25a3241c1bfdc6c733",
+        "note": "This is a Cloudinary collection URL - requires JavaScript to access actual videos"
+      }
+    },
+    {
+      "filename": "cloudinary_collection_4.mp4",
+      "url": "https://collection.cloudinary.com/dxfhfpaym/329afc666ff08426da6c2f2f2a529ea8",
+      "duration": 30,
+      "checksum": null,
+      "metadata": {
+        "source": "cloudinary_collection",
+        "collection_id": "329afc666ff08426da6c2f2f2a529ea8",
+        "collection_url": "https://collection.cloudinary.com/dxfhfpaym/329afc666ff08426da6c2f2f2a529ea8",
+        "note": "This is a Cloudinary collection URL - requires JavaScript to access actual videos"
+      }
+    },
+    {
+      "filename": "cloudinary_collection_5.mp4",
+      "url": "https://collection.cloudinary.com/dxfhfpaym/d4ac678778867b5fbe15e2a1f10fb589",
+      "duration": 30,
+      "checksum": null,
+      "metadata": {
+        "source": "cloudinary_collection",
+        "collection_id": "d4ac678778867b5fbe15e2a1f10fb589",
+        "collection_url": "https://collection.cloudinary.com/dxfhfpaym/d4ac678778867b5fbe15e2a1f10fb589",
+        "note": "This is a Cloudinary collection URL - requires JavaScript to access actual videos"
+      }
+    },
+    {
+      "filename": "cloudinary_collection_6.mp4",
+      "url": "https://collection.cloudinary.com/dxfhfpaym/152008e9ff99a72cb8de06f125dab9b8",
+      "duration": 30,
+      "checksum": null,
+      "metadata": {
+        "source": "cloudinary_collection",
+        "collection_id": "152008e9ff99a72cb8de06f125dab9b8",
+        "collection_url": "https://collection.cloudinary.com/dxfhfpaym/152008e9ff99a72cb8de06f125dab9b8",
+        "note": "This is a Cloudinary collection URL - requires JavaScript to access actual videos"
+      }
+    },
+    {
+      "filename": "cloudinary_collection_7.mp4",
+      "url": "https://collection.cloudinary.com/dxfhfpaym/9a919c47d389473ff2d9b4ceff7b1093",
+      "duration": 30,
+      "checksum": null,
+      "metadata": {
+        "source": "cloudinary_collection",
+        "collection_id": "9a919c47d389473ff2d9b4ceff7b1093",
+        "collection_url": "https://collection.cloudinary.com/dxfhfpaym/9a919c47d389473ff2d9b4ceff7b1093",
+        "note": "This is a Cloudinary collection URL - requires JavaScript to access actual videos"
+      }
+    }
+  ]
+}

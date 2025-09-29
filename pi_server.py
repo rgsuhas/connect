@@ -20,6 +20,7 @@ from config import config
 from telemetry import get_stats
 from media_downloader import update_cache_for_playlist
 from backend_client import get_backend_client
+from playlist_manager import get_playlist_manager
 
 # Setup logging
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL))
@@ -180,22 +181,37 @@ async def update_playlist(playlist: Dict[str, Any], background_tasks: Background
 
 @app.get("/playlist")
 async def get_playlist():
-    """Get the current playlist"""
+    """Get the current playlist, creating default if none exists"""
     try:
+        # Check if we need to ensure a playlist is available
+        playlist_manager = get_playlist_manager()
+        
         if not config.PLAYLIST_FILE.exists():
+            logger.info("No playlist file exists, attempting to ensure one is available")
+            playlist_manager.ensure_playlist_available()
+        
+        # Try to read playlist
+        if config.PLAYLIST_FILE.exists():
+            with open(config.PLAYLIST_FILE, 'r') as f:
+                playlist_data = json.load(f)
+            
+            # Get playlist manager status for additional context
+            manager_status = playlist_manager.get_playlist_status()
+            
             return {
-                "message": "No playlist found",
-                "playlist": None,
-                "update_status": playlist_update_status
+                "playlist": playlist_data,
+                "update_status": playlist_update_status,
+                "playlist_manager_status": manager_status
             }
-        
-        with open(config.PLAYLIST_FILE, 'r') as f:
-            playlist_data = json.load(f)
-        
-        return {
-            "playlist": playlist_data,
-            "update_status": playlist_update_status
-        }
+        else:
+            # Still no playlist after trying to create one
+            manager_status = playlist_manager.get_playlist_status()
+            return {
+                "message": "No playlist could be created",
+                "playlist": None,
+                "update_status": playlist_update_status,
+                "playlist_manager_status": manager_status
+            }
         
     except Exception as e:
         logger.exception(f"Failed to get playlist: {e}")
@@ -315,6 +331,70 @@ async def backend_status():
         return {"error": str(e), "timestamp": datetime.now().isoformat()}
 
 
+@app.get("/playlist/manager/status")
+async def playlist_manager_status():
+    """Get playlist manager status"""
+    try:
+        playlist_manager = get_playlist_manager()
+        status = playlist_manager.get_playlist_status()
+        
+        return status
+        
+    except Exception as e:
+        logger.exception(f"Playlist manager status failed: {e}")
+        return {"error": str(e), "timestamp": datetime.now().isoformat()}
+
+
+@app.post("/playlist/manager/refresh")
+async def playlist_manager_refresh():
+    """Force playlist refresh from backend or load default"""
+    try:
+        playlist_manager = get_playlist_manager()
+        success = playlist_manager.force_refresh_from_backend()
+        
+        if success:
+            return {
+                "message": "Playlist refresh completed",
+                "timestamp": datetime.now().isoformat(),
+                "status": "success"
+            }
+        else:
+            return {
+                "message": "Playlist refresh failed",
+                "timestamp": datetime.now().isoformat(),
+                "status": "failed"
+            }
+        
+    except Exception as e:
+        logger.exception(f"Playlist manager refresh failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")
+
+
+@app.post("/playlist/load-default")
+async def load_default_playlist(use_cloudinary: bool = True):
+    """Manually load default playlist"""
+    try:
+        playlist_manager = get_playlist_manager()
+        success = playlist_manager.load_default_playlist(use_cloudinary=use_cloudinary)
+        
+        if success:
+            return {
+                "message": f"Default playlist loaded ({'Cloudinary' if use_cloudinary else 'sample videos'})",
+                "timestamp": datetime.now().isoformat(),
+                "status": "success"
+            }
+        else:
+            return {
+                "message": "Failed to load default playlist",
+                "timestamp": datetime.now().isoformat(),
+                "status": "failed"
+            }
+        
+    except Exception as e:
+        logger.exception(f"Load default playlist failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Load default failed: {str(e)}")
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize server state on startup"""
@@ -327,11 +407,29 @@ async def startup_event():
     # Initialize playback state
     update_playback_state("server_started")
     
+    # Initialize playlist manager
+    playlist_manager = get_playlist_manager()
+    logger.info("Playlist manager initialized")
+    
     # Start backend integration
     if config.BACKEND_ENABLED:
         backend_client = get_backend_client()
         backend_client.start_periodic_tasks()
         logger.info("Backend integration started")
+        
+        # Give backend a moment to try fetching playlist, then ensure we have a fallback
+        def delayed_playlist_check():
+            import time
+            time.sleep(45)  # Wait 45 seconds for backend to try
+            playlist_manager.ensure_playlist_available()
+            logger.info("Initial playlist availability check completed")
+        
+        import threading
+        threading.Thread(target=delayed_playlist_check, daemon=True).start()
+    else:
+        # No backend, immediately ensure we have a default playlist
+        playlist_manager.ensure_playlist_available()
+        logger.info("Default playlist loaded (no backend enabled)")
     
     logger.info(f"Pi Player API server started on {config.API_HOST}:{config.API_PORT}")
 

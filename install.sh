@@ -169,6 +169,9 @@ install_files() {
     cp "${script_dir}/media_player.py" "$INSTALL_DIR/"
     cp "${script_dir}/media_downloader.py" "$INSTALL_DIR/"
     cp "${script_dir}/telemetry.py" "$INSTALL_DIR/"
+    cp "${script_dir}/backend_client.py" "$INSTALL_DIR/"
+    cp "${script_dir}/playlist_manager.py" "$INSTALL_DIR/"
+    cp "${script_dir}/default_playlist.py" "$INSTALL_DIR/"
     
     # Make Python files executable
     chmod +x "${INSTALL_DIR}/"*.py
