@@ -1,5 +1,5 @@
 Request URL:
-http://localhost:3001/api/hardware/68da17212d8ff0001d095d88/heartbeat
+https://conekt-ai-backend.onrender.com/api/hardware/68da17212d8ff0001d095d88/heartbeat
 
 Request Body:
 {
@@ -40,7 +40,7 @@ Response Example:
 ---
 
 Request URL:
-http://localhost:3001/api/hardware/68da17212d8ff0001d095d88/telemetry
+https://conekt-ai-backend.onrender.com/api/hardware/68da17212d8ff0001d095d88/telemetry
 
 Headers:
 x-api-key: 12345678

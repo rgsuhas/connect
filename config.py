@@ -43,7 +43,7 @@ class Config:
     
     # Backend integration settings
     BACKEND_ENABLED: bool = True
-    BACKEND_BASE_URL: str = "http://localhost:3001"
+    BACKEND_BASE_URL: str = "https://conekt-ai-backend.onrender.com"
     BACKEND_API_KEY: str = "12345678"
     DEVICE_ID: str = "PI-PLAYER-001"  # Unique device identifier
     HARDWARE_ID: str = "68da17212d8ff0001d095d88"  # Hardware ID for API endpoints
