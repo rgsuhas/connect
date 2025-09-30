@@ -1,0 +1,33 @@
+[Unit]
+Description=Pi Player Fullscreen Kiosk
+Documentation=https://github.com/rgsuhas/pi-player
+After=graphical.target
+Wants=graphical.target
+StartLimitBurst=3
+StartLimitIntervalSec=300
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+Environment=HOME=/home/pi
+WorkingDirectory=/home/pi
+ExecStart=/home/pi/bin/start-player.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pi-player-kiosk
+
+# Allow access to display and audio devices
+SupplementaryGroups=audio video render
+
+# Security settings - less restrictive for GUI apps
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+
+[Install]
+WantedBy=graphical.target
