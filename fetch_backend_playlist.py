@@ -86,7 +86,7 @@ def convert_backend_playlist_to_player_format(backend_playlist: Dict[str, Any]) 
     backend_items = backend_playlist.get('playlist', [])
     
     # Determine if any item has loop=True (use OR logic)
-    should_loop = any(item.get('loop', True) for item in backend_items)
+    should_loop = True  # force loop on device
     
     # Convert items
     player_items = []

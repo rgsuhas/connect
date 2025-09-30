@@ -245,23 +245,13 @@ class MediaPlayer:
                 self.current_process = None
     
     def get_media_file_path(self, item: Dict) -> Optional[Path]:
-        """Get the actual path to play for a media item (cached or fallback, prefer optimized)"""
+        """Get the actual path to play for a media item (cached or fallback)"""
         filename = item.get('filename')
         if not filename:
             logger.error(f"No filename in playlist item: {item}")
             return None
         
-        # First check for optimized version
-        base_name = Path(filename).stem
-        extension = Path(filename).suffix
-        optimized_filename = f"{base_name}_optimized{extension}"
-        
-        optimized_path = config.get_media_path(optimized_filename)
-        if optimized_path.exists() and optimized_path.stat().st_size > 0:
-            logger.debug(f"Using optimized cached file: {optimized_path}")
-            return optimized_path
-        
-        # Fall back to original cached file
+        # Check cache first
         cached_path = config.get_media_path(filename)
         if cached_path.exists() and cached_path.stat().st_size > 0:
             logger.debug(f"Using cached file: {cached_path}")
@@ -276,12 +266,20 @@ class MediaPlayer:
         # Look for any similar file in default_assets (for fallbacks)
         default_dir = config.BASE_DIR / "default_assets"
         if default_dir.exists():
+            # Look for files with similar names or extensions
+            name_base = Path(filename).stem
+            extension = Path(filename).suffix
+            
             for fallback_file in default_dir.iterdir():
                 if fallback_file.is_file():
-                    logger.warning(f"Using generic fallback: {fallback_file}")
-                    return fallback_file
+                    if (name_base.lower() in fallback_file.stem.lower() or 
+                        fallback_file.suffix.lower() == extension.lower()):
+                        logger.info(f"Using similar fallback file: {fallback_file}")
+                        return fallback_file
         
+        logger.error(f"No media file found for: {filename}")
         return None
+    
     def create_default_screen_if_needed(self):
         """Create default screen image if needed"""
         default_path = config.DEFAULT_SCREEN_PATH
@@ -505,14 +503,12 @@ Cache Directory: {config.MEDIA_CACHE_DIR}
             self.current_process = None
     
     def _build_video_command(self, media_path: Path, item: Dict) -> List[str]:
-        """Build video player command with Pi optimizations"""
+        """Build video player command"""
         if self.selected_video_player == 'mpv':
             return [
                 "mpv",
                 "--fullscreen",
-                "--no-audio",  # Disable audio for performance
-                "--hwdec=auto-safe",  # Hardware decoding when available
-                "--cache=yes",
+                "--no-osd-msg",
                 "--no-input-default-bindings", 
                 "--input-conf=/dev/null",
                 "--really-quiet",
@@ -522,17 +518,15 @@ Cache Directory: {config.MEDIA_CACHE_DIR}
             return [
                 self.selected_video_player,
                 "--fullscreen",
-                "--no-audio",  # Disable audio for performance
                 "--no-osd",
                 "--intf", "dummy",
                 "--play-and-exit",
-                "--avcodec-hw=any",  # Hardware acceleration
-                "--file-caching=3000",  # Increase cache
                 str(media_path)
             ]
         else:
             # Generic fallback
             return [self.selected_video_player, str(media_path)]
+    
     def _build_image_command(self, media_path: Path, item: Dict) -> List[str]:
         """Build image viewer command"""
         if self.selected_image_viewer == 'feh':
@@ -594,9 +588,15 @@ Cache Directory: {config.MEDIA_CACHE_DIR}
                         time.sleep(5)  # Already showing default screen
                     continue
                 
-                # Skip verification if downloads are already handled by background process
+                # Ensure download manager has run for current playlist
                 if playlist_changed:
-                    logger.info("Playlist changed, cache downloads handled by background service")
+                    logger.info("Playlist changed, verifying cached files...")
+                    try:
+                        download_result = load_and_download_playlist()
+                        if download_result.get('errors', 0) > 0:
+                            logger.warning(f"Some downloads failed: {download_result.get('errors', 0)} errors")
+                    except Exception as e:
+                        logger.error(f"Failed to update cache: {e}")
                 
                 # Play current item
                 if self.current_index < len(self.playlist):

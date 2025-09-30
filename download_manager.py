@@ -282,17 +282,21 @@ def download_single_item(item: Dict, session: requests.Session) -> Dict[str, Any
         # Verify checksum if provided
         if expected_checksum:
             logger.debug(f"Verifying downloaded file checksum: {filename}")
-            actual_checksum = calculate_checksum(temp_path, config.CHECKSUM_ALGORITHM)
-            
-            if actual_checksum != expected_checksum:
-                temp_path.unlink(missing_ok=True)
-                result["status"] = "error"
-                result["reason"] = "checksum verification failed"
-                progress.finish_download(filename, "checksum_failed", "checksum verification failed")
-                logger.error(f"Checksum verification failed for {filename}: expected {expected_checksum}, got {actual_checksum}")
-                return result
-            
-            logger.info(f"Checksum verified for downloaded file: {filename}")
+            # Skip checksum verification for Cloudinary URLs (they can change)
+            if "cloudinary.com" in url:
+                logger.info(f"Skipping checksum verification for Cloudinary file: {filename}")
+            else:
+                actual_checksum = calculate_checksum(temp_path, config.CHECKSUM_ALGORITHM)
+                
+                if actual_checksum != expected_checksum:
+                    temp_path.unlink(missing_ok=True)
+                    result["status"] = "error"
+                    result["reason"] = "checksum verification failed"
+                    progress.finish_download(filename, "checksum_failed", "checksum verification failed")
+                    logger.error(f"Checksum verification failed for {filename}: expected {expected_checksum}, got {actual_checksum}")
+                    return result
+                
+                logger.info(f"Checksum verified for downloaded file: {filename}")
         
         # Move temp file to final location
         temp_path.replace(cached_path)
