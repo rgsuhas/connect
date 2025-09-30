@@ -1,0 +1,15 @@
+{
+  "version": "v1759151026822",
+  "last_updated": "2025-09-30T19:45:03.172Z",
+  "loop": false,
+  "description": "Backend playlist fetched at 2025-09-30T19:45:03.172Z",
+  "source": "backend_api",
+  "items": [
+    {
+      "filename": "video_1759147816545_bdbbo6k1k.mp4",
+      "url": "https://res.cloudinary.com/dwvkpgwor/video/upload/v1759147825/conekt/videos/video_1759147816545_bdbbo6k1k.mp4",
+      "duration": 20,
+      "checksum": "29a0dbea59bc9dfb8fbdb7b1894b627b"
+    }
+  ]
+}
