@@ -506,14 +506,19 @@ Cache Directory: {config.MEDIA_CACHE_DIR}
     
     def _build_video_command(self, media_path: Path, item: Dict) -> List[str]:
         """Build video player command with Pi optimizations"""
+        
         if self.selected_video_player == 'mpv':
             return [
                 "mpv",
                 "--fullscreen",
-                "--no-audio",  # Disable audio for performance
-                "--hwdec=auto-safe",  # Hardware decoding when available
+                "--keepaspect=yes",          # ensure letterboxing, no crop
+                "--panscan=0",               # never crop to fill
+                "--video-align-x=0.5",       # center horizontally
+                "--video-align-y=0.5",       # center vertically
+                "--no-audio",                 # Disable audio for performance
+                "--hwdec=auto-safe",          # Hardware decoding when available
                 "--cache=yes",
-                "--no-input-default-bindings", 
+                "--no-input-default-bindings",
                 "--input-conf=/dev/null",
                 "--really-quiet",
                 str(media_path)
@@ -541,7 +546,8 @@ Cache Directory: {config.MEDIA_CACHE_DIR}
                 "--fullscreen",
                 "--hide-pointer",
                 "--no-menus",
-                "--zoom", "fill",
+                "--auto-zoom",      # scale to fit, no crop
+                "--image-bg", "black",
                 str(media_path)
             ]
         elif self.selected_image_viewer == 'display':
