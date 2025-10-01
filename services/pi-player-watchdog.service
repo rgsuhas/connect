@@ -1,0 +1,11 @@
+[Unit]
+Description=Pi Player Watchdog (restart crashed services)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/connect/bin/watchdog.sh
+
+[Install]
+WantedBy=multi-user.target
