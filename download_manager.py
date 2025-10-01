@@ -332,6 +332,20 @@ def download_playlist_items(playlist_data: Dict, max_workers: int = None) -> Dic
     """Download all items from playlist with comprehensive logging"""
     
     items = playlist_data.get("items", [])
+
+    # Deduplicate items by filename to avoid concurrent downloads of same file
+    seen_files = set()
+    unique_items = []
+    for item in items:
+        filename = item.get("filename")
+        if filename and filename not in seen_files:
+            seen_files.add(filename)
+            unique_items.append(item)
+        else:
+            logger.debug(f"Skipping duplicate file: {filename}")
+
+    logger.info(f"Deduplicated {len(items)} items to {len(unique_items)} unique files")
+    items = unique_items
     if not items:
         logger.warning("No items found in playlist")
         return {"error": "no items in playlist"}
