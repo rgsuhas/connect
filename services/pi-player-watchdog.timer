@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Pi Player Watchdog periodically
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=pi-player-watchdog.service
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

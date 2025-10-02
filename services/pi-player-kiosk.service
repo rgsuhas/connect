@@ -1,0 +1,33 @@
+[Unit]
+Description=Pi Player Fullscreen Kiosk
+Documentation=https://github.com/rgsuhas/pi-player
+After=lightdm.service
+Wants=lightdm.service
+StartLimitBurst=10
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+Environment=HOME=/home/pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+WorkingDirectory=/home/pi/connect
+ExecStart=/home/pi/connect/bin/start-player.sh
+ExecStartPost=/usr/bin/env bash -lc 'cd /home/pi/connect && python3 -c "from fetch_backend_playlist import fetch_and_save_backend_playlist_with_cleanup; fetch_and_save_backend_playlist_with_cleanup()" 2>&1 &'
+ExecStartPost=/home/pi/connect/bin/start-downloads.sh
+Restart=always
+RestartSec=5
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pi-player-kiosk
+SupplementaryGroups=audio video render
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+
+[Install]
+WantedBy=multi-user.target
